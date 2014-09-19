@@ -1,0 +1,9 @@
+#!/bin/sh
+[ -d bin ] && rm -rf bin
+mkdir bin
+cd src
+javac -d ../bin player.java
+javac -d ../bin player03.java
+cd ../bin
+cp -r ../src .
+jar -cfm ../brstm.jar ../MANIFEST.MF src/ org/ *.class
