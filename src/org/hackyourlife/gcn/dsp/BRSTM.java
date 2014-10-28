@@ -2,7 +2,7 @@ package org.hackyourlife.gcn.dsp;
 
 import java.io.RandomAccessFile;
 import java.io.IOException;
-public class BRSTM {
+public class BRSTM implements Stream {
 	long	sample_count;
 	long	nibble_count;
 	long	sample_rate;

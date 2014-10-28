@@ -5,6 +5,8 @@ import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.DataLine;
 import javax.sound.sampled.SourceDataLine;
 import org.hackyourlife.gcn.dsp.BRSTM;
+import org.hackyourlife.gcn.dsp.Stream;
+import org.hackyourlife.gcn.dsp.AsyncDecoder;
 
 public class player {
 	public static void main(String[] args) throws Exception {
@@ -15,14 +17,16 @@ public class player {
 		try {
 			RandomAccessFile file = new RandomAccessFile(args[0], "r");
 			BRSTM rstm = new BRSTM(file);
-			play(rstm);
+			AsyncDecoder decoder = new AsyncDecoder(rstm);
+			decoder.start();
+			play(decoder);
 		} catch(Exception e) {
 			e.printStackTrace();
 			System.exit(1);
 		}
 	}
 
-	private static void play(BRSTM stream) throws Exception {
+	private static void play(Stream stream) throws Exception {
 		AudioFormat format = new AudioFormat(
 				AudioFormat.Encoding.PCM_SIGNED,	// encoding
 				stream.getSampleRate(),			// sample rate

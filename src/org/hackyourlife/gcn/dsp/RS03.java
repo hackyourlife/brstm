@@ -2,7 +2,7 @@ package org.hackyourlife.gcn.dsp;
 
 import java.io.*;
 
-public class RS03 {
+public class RS03 implements Stream {
 	public final static int HEADER_SIZE = 0x60;
 
 	long	sample_count;
