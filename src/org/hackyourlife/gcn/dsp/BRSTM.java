@@ -36,7 +36,7 @@ public class BRSTM implements Stream {
 	public final static int CODEC_PCM16BE = 1;
 	public final static int CODEC_ADPCM = 2;
 
-	public BRSTM(RandomAccessFile file) throws Exception {
+	public BRSTM(RandomAccessFile file) throws FileFormatException, IOException {
 		this.file = file;
 		this.filesize = file.length();
 		readHeader();
@@ -62,7 +62,6 @@ public class BRSTM implements Stream {
 	}
 
 	public long read_32bitBE(long offset) throws IOException {
-		file.seek(offset);
 		file.seek(offset);
 		byte[] data = new byte[4];
 		file.read(data);
@@ -98,21 +97,21 @@ public class BRSTM implements Stream {
 		filepos = start_offset + pos;
 	}
 
-	public void reset() throws Exception {
+	public void reset() throws IOException {
 		seek(0);
 		for(int i = 0; i < channel_count; i++)
 			decoder[i].setHistory(0, 0);
 	}
 
-	private void readHeader() throws Exception {
+	private void readHeader() throws FileFormatException, IOException {
 		boolean atlus_shrunken_head = false;
 		if(read_32bitBE(0) != 0x5253544D) { // "RSTM"
-			throw new Exception("not a brstm file");
+			throw new FileFormatException("not a brstm file");
 		}
 
 		if(read_32bitBE(4) != 0xFEFF0100) {
 			if(read_32bitBE(4) != 0xFEFF0001) {
-				throw new Exception("not a brstm file");
+				throw new FileFormatException("not a brstm file");
 			} else {
 				atlus_shrunken_head = true;
 			}
@@ -121,12 +120,12 @@ public class BRSTM implements Stream {
 		long head_offset = read_32bitBE(0x10);
 		if(atlus_shrunken_head) {
 			if((head_offset != 0x48454144) || (read_32bitBE(0x14) != 8)) {
-				throw new Exception("not a brstm file");
+				throw new FileFormatException("not a brstm file");
 			}
 			head_offset -= 8;
 		} else {
 			if(read_32bitBE(head_offset) != 0x48454144) { // "HEAD"
-				throw new Exception("not a brstm file");
+				throw new FileFormatException("not a brstm file");
 			}
 		}
 
@@ -139,11 +138,11 @@ public class BRSTM implements Stream {
 			case CODEC_ADPCM:
 				break;
 			default:
-				throw new Exception("unknown codec");
+				throw new FileFormatException("unknown codec");
 		}
 		this.codec = codec_number;
 		if(this.channel_count < 1) {
-			throw new Exception("no channel");
+			throw new FileFormatException("no channel");
 		}
 
 		this.sample_count = read_32bitBE(head_offset + 0x2C);
@@ -205,8 +204,8 @@ public class BRSTM implements Stream {
 			current_byte = start_offset;
 		seek(blocks * interleave_block_size * channel_count);
 
-		start_offset = (long)(start_offset - (blocks * interleave_block_size));
-		start_offset = ((long)(start_offset / 8)) * 8;
+		start_offset = start_offset - (blocks * interleave_block_size);
+		start_offset = (start_offset / 8) * 8;
 		int startsample = (int)(start_offset / 8.0 * 14.0);
 
 		long interleave = interleave_block_size;
@@ -221,7 +220,7 @@ public class BRSTM implements Stream {
 
 		byte[] rawdata = new byte[(int)(interleave * channel_count)];
 		int samplecnt = endsample - startsample;
-		int[] samples = new int[(int)(samplecnt * channel_count)];
+		int[] samples = new int[samplecnt * channel_count];
 		int read = file.read(rawdata);
 		filepos += read;
 		current_byte += read / 2;
@@ -232,7 +231,7 @@ public class BRSTM implements Stream {
 					samplestodo = 14;
 				int[] buf = decoder[ch].decode_ngc_dsp(1, startsample + i, samplestodo, rawdata);
 				for(int x = 0; x < buf.length; x++)
-					samples[(int)((i + x) * channel_count + ch)] = buf[x];
+					samples[(i + x) * channel_count + ch] = buf[x];
 			}
 		}
 		return samples;

@@ -3,7 +3,7 @@ import java.io.RandomAccessFile;
 import java.io.IOException;
 import java.io.File;
 
-public class DSP {
+public class DSP implements Stream {
 	public final static int HEADER_SIZE = 0x60;
 
 	long	sample_count;
@@ -23,7 +23,7 @@ public class DSP {
 	int	loop_hist1;
 	int	loop_hist2;
 
-	RandomAccessFile filein;
+	RandomAccessFile file;
 	long	filepos;
 	long	filesize;
 	long	startoffset;
@@ -31,6 +31,13 @@ public class DSP {
 	long	current_sample;
 
 	ADPCMDecoder decoder;
+
+	public DSP(RandomAccessFile file)
+			throws FileFormatException, IOException {
+		this.file = file;
+		filesize = file.length();
+		readHeader();
+	}
 
 	public final static int unsigned2signed16bit(int x) {
 		int sign = x & (1 << 15);
@@ -59,7 +66,7 @@ public class DSP {
 			endianess.get_32bitBE(header, 0x14) / 16 * 8;
 		ca =
 			endianess.get_32bitBE(header, 0x18);
-		for (i=0; i < 16; i++)
+		for(i = 0; i < 16; i++)
 			coef[i] =
 				unsigned2signed16bit(endianess.get_16bitBE(header, 0x1c+i*2));
 		gain =
@@ -77,6 +84,12 @@ public class DSP {
 		loop_hist2 =
 			unsigned2signed16bit(endianess.get_16bitBE(header, 0x48));
 
+		if(sample_count < nibble_count)
+			return(false);
+		if((sample_rate == 0) || (sample_rate < 0))
+			return(false);
+		if(loop_start_offset > loop_end_offset)
+			return(false);
 		return(true);
 	}
 
@@ -88,13 +101,13 @@ public class DSP {
 		return(1);
 	}
 
-	public void open(String filename) throws Exception {
-		filesize = new File(filename).length();
-		filein = new RandomAccessFile(filename, "r");
+	private void readHeader() throws FileFormatException, IOException {
+		seek(0);
 		startoffset = 0x60;
 		byte[] header = new byte[0x60];
-		filein.read(header);
-		read_dsp_header(header);
+		file.read(header);
+		if(!read_dsp_header(header))
+			throw new FileFormatException("not a devkit DSP file");
 		decoder = new ADPCMDecoder();
 		decoder.setCoef(coef);
 		decoder.setHistory(initial_hist1, initial_hist2);
@@ -102,28 +115,28 @@ public class DSP {
 		current_sample = 0;
 	}
 
-	public void close() throws Exception {
-		filein.close();
+	public void close() throws IOException {
+		file.close();
 	}
 
-	private void seek(long offset) throws Exception {
-		filein.seek(offset);
+	private void seek(long offset) throws IOException {
+		file.seek(offset);
 	}
 
 	public boolean hasMoreData() {
 		return(filepos < filesize);
 	}
 
-	public byte[] decode() throws Exception {
+	public byte[] decode() throws IOException {
 		byte[] rawdata = new byte[8];
-		filepos += filein.read(rawdata);
+		filepos += file.read(rawdata);
 		int[] samples = decoder.decode_ngc_dsp(1, 0, (int)(rawdata.length / 8.0 * 14.0), rawdata);
 		byte[] buffer = new byte[samples.length * 2];
 		for(int i = 0; i < samples.length; i++)
 			endianess.set16bit_BE(samples[i], buffer, i * 2);
 		current_sample += samples.length;
 		if((loop_flag != 0) && ((filepos - startoffset) >= loop_end_offset)) {
-			filepos = startoffset + ((long) (loop_start_offset / 8)) * 8;
+			filepos = startoffset + (loop_start_offset / 8) * 8;
 			seek(filepos);
 		}
 		return(buffer);

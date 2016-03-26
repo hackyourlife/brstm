@@ -5,8 +5,11 @@ import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.DataLine;
 import javax.sound.sampled.SourceDataLine;
 import org.hackyourlife.gcn.dsp.BRSTM;
+import org.hackyourlife.gcn.dsp.RS03;
+import org.hackyourlife.gcn.dsp.DSP;
 import org.hackyourlife.gcn.dsp.Stream;
 import org.hackyourlife.gcn.dsp.AsyncDecoder;
+import org.hackyourlife.gcn.dsp.FileFormatException;
 
 public class player {
 	public static void main(String[] args) throws Exception {
@@ -16,10 +19,20 @@ public class player {
 		}
 		try {
 			RandomAccessFile file = new RandomAccessFile(args[0], "r");
-			BRSTM rstm = new BRSTM(file);
-			AsyncDecoder decoder = new AsyncDecoder(rstm);
+			Stream stream = null;
+			try {
+				stream = new BRSTM(file);
+			} catch(FileFormatException e) {
+				try {
+					stream = new RS03(file);
+				} catch(FileFormatException ex) {
+					stream = new DSP(file);
+				}
+			}
+			AsyncDecoder decoder = new AsyncDecoder(stream);
 			decoder.start();
 			play(decoder);
+			stream.close();
 		} catch(Exception e) {
 			e.printStackTrace();
 			System.exit(1);

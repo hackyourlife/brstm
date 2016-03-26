@@ -14,7 +14,7 @@ public class RS03 implements Stream {
 	long	channel_count;
 	int	coef[][]; /* really 8x2 */
 
-	RandomAccessFile filein;
+	RandomAccessFile file;
 	long	startoffset;
 	long	filepos;
 	long	filesize;
@@ -26,6 +26,14 @@ public class RS03 implements Stream {
 	long	interleave_smallblock_size;
 
 	ADPCMDecoder decoder[];
+
+	public RS03(RandomAccessFile file) throws FileFormatException, IOException {
+		this.file = file;
+		this.filesize = file.length();
+		if(!readHeader())
+			throw new FileFormatException("not a RS03 file");
+		reset();
+	}
 
 	public final static int unsigned2signed16bit(int x) {
 		int sign = x & (1 << 15);
@@ -81,13 +89,20 @@ public class RS03 implements Stream {
 	}
 
 	public boolean open(String filename) throws Exception {
-		filesize = new File(filename).length();
-		filein = new RandomAccessFile(filename, "r");
+		if(file != null)
+			close();
+		file = new RandomAccessFile(filename, "r");
+		filesize = file.length();
+		return readHeader();
+	}
+
+	private boolean readHeader() throws IOException {
+		seek(0);
 		startoffset = 0x20;
 
 		byte[] header = new byte[0x20];
-		filein.read(header);
-		if(!read_dsp_header(header, filein))
+		file.read(header);
+		if(!read_dsp_header(header, file))
 			return(false);
 
 		startoffset += 0x20 * channel_count;
@@ -110,19 +125,19 @@ public class RS03 implements Stream {
 	}
 	
 	public void close() throws Exception {
-		filein.close();
+		file.close();
 	}
 
 	public boolean hasMoreData() {
 		return((loop_flag != 0) || (filepos < filesize));
 	}
 
-	private void seek(long pos) throws Exception {
-		filein.seek(startoffset + pos);
+	private void seek(long pos) throws IOException {
+		file.seek(startoffset + pos);
 		filepos = startoffset + pos;
 	}
 
-	public void reset() throws Exception {
+	public void reset() throws IOException {
 		seek(0);
 		for(int i = 0; i < channel_count; i++)
 			decoder[i].setHistory(0, 0);
@@ -139,8 +154,8 @@ public class RS03 implements Stream {
 			current_byte = start_offset;
 		seek(blocks * interleave_block_size * channel_count);
 
-		start_offset = (long)(start_offset - (blocks * interleave_block_size));
-		start_offset = ((long)(start_offset / 8)) * 8;
+		start_offset = start_offset - (blocks * interleave_block_size);
+		start_offset = (start_offset / 8) * 8;
 		int startsample = (int)(start_offset / 8.0 * 14.0);
 
 		long interleave = interleave_block_size;
@@ -156,7 +171,7 @@ public class RS03 implements Stream {
 		byte[] rawdata = new byte[(int)(interleave * channel_count)];
 		int samplecnt = endsample - startsample;
 		int[] samples = new int[(int)(samplecnt * channel_count)];
-		int read = filein.read(rawdata);
+		int read = file.read(rawdata);
 		filepos += read;
 		current_byte += read / 2;
 		for(int ch = 0; ch < channel_count; ch++) {

@@ -4,6 +4,7 @@ public class AsyncDecoder extends Thread implements Stream {
 	private Stream stream;
 	private byte[] data = null;
 	private boolean moreData = false;
+	private boolean closed = false;
 
 	public AsyncDecoder(Stream stream) {
 		this.stream = stream;
@@ -35,8 +36,14 @@ public class AsyncDecoder extends Thread implements Stream {
 		return stream.getSampleRate();
 	}
 
+	public void close() throws Exception {
+		closed = true;
+		interrupt();
+		stream.close();
+	}
+
 	public void run() {
-		while(stream.hasMoreData()) {
+		while(!closed && stream.hasMoreData()) {
 			try {
 				synchronized(this) {
 					if(data != null) {

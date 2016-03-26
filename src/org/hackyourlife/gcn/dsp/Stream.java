@@ -5,4 +5,5 @@ public interface Stream {
 	public byte[] decode() throws Exception;
 	public int getChannels();
 	public long getSampleRate();
+	public void close() throws Exception;
 }
