@@ -41,13 +41,14 @@ public class ADPCMDecoder {
 		return (sign != 0) ? -(~x & 0xFFFF) : value;
 	}
 
-	public int[] decode_ngc_dsp(int channelspacing, long first_sample, int samples_to_do, byte[] mem) {
+	public int[] decode_ngc_dsp(int offset, long first_sample, int samples_to_do, byte[] mem) {
 		long i = first_sample;
 		int sample_count;
+		int channelspacing = 1;
 
 		int framesin = (int)(first_sample / 14);
 
-		int header = mem[framesin * 8] & 0xFF;
+		int header = mem[offset + framesin * 8] & 0xFF;
 		int scale = 1 << (header & 0xf);
 		int coef_index = (header >> 4) & 0xf;
 		int hist1 = adpcm_history1;
@@ -60,7 +61,7 @@ public class ADPCMDecoder {
 		int[] samples = new int[samples_to_do * channelspacing];
 
 		for(i = first_sample, sample_count = 0; i < (first_sample + samples_to_do); i++, sample_count += channelspacing) {
-			int sample_byte = mem[framesin*8 + 1 + (int) (i/2)] & 0xFF;
+			int sample_byte = mem[offset + framesin*8 + 1 + (int) (i/2)] & 0xFF;
 
 			samples[sample_count] = clamp16((
 				(((((i & 1) != 0) ?

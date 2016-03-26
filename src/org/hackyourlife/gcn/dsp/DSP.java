@@ -24,6 +24,7 @@ public class DSP implements Stream {
 	int	loop_hist2;
 
 	RandomAccessFile file;
+	DSP	ch2;
 	long	filepos;
 	long	filesize;
 	long	startoffset;
@@ -34,9 +35,17 @@ public class DSP implements Stream {
 
 	public DSP(RandomAccessFile file)
 			throws FileFormatException, IOException {
+		ch2 = null;
 		this.file = file;
 		filesize = file.length();
 		readHeader();
+	}
+
+	public DSP(RandomAccessFile ch1, RandomAccessFile ch2)
+			throws FileFormatException, IOException {
+		this(ch1);
+		this.ch2 = new DSP(ch2);
+		validateChannel(this.ch2);
 	}
 
 	public final static int unsigned2signed16bit(int x) {
@@ -84,7 +93,7 @@ public class DSP implements Stream {
 		loop_hist2 =
 			unsigned2signed16bit(endianess.get_16bitBE(header, 0x48));
 
-		if(sample_count < nibble_count)
+		if(sample_count > nibble_count)
 			return(false);
 		if((sample_rate == 0) || (sample_rate < 0))
 			return(false);
@@ -93,12 +102,33 @@ public class DSP implements Stream {
 		return(true);
 	}
 
+	private void validateChannel(DSP ch) throws FileFormatException {
+		boolean invalid = false;
+		if(ch.sample_count != sample_count)
+			invalid = true;
+		if(ch.nibble_count != nibble_count)
+			invalid = true;
+		if(ch.sample_rate != sample_rate)
+			invalid = true;
+		if(ch.loop_flag != loop_flag)
+			invalid = true;
+		if(ch.loop_start_offset != loop_start_offset)
+			invalid = true;
+		if(ch.loop_end_offset != loop_end_offset)
+			invalid = true;
+		if(invalid)
+			throw new FileFormatException("channels do not match");
+	}
+
 	public long getSampleRate() {
 		return(sample_rate);
 	}
 
 	public int getChannels() {
-		return(1);
+		if(ch2 == null)
+			return(1);
+		else
+			return(2);
 	}
 
 	private void readHeader() throws FileFormatException, IOException {
@@ -117,6 +147,10 @@ public class DSP implements Stream {
 
 	public void close() throws IOException {
 		file.close();
+		if(ch2 != null) {
+			ch2.close();
+			ch2 = null;
+		}
 	}
 
 	private void seek(long offset) throws IOException {
@@ -128,9 +162,24 @@ public class DSP implements Stream {
 	}
 
 	public byte[] decode() throws IOException {
+		if(getChannels() == 1)
+			return __decode();
+		byte[] ch1 = __decode();
+		byte[] ch2 = this.ch2.__decode();
+		byte[] r = new byte[ch1.length + ch2.length];
+		for(int i = 0; i < ch1.length; i += 2) {
+			r[2 * i    ] = ch1[i    ];
+			r[2 * i + 1] = ch1[i + 1];
+			r[2 * i + 2] = ch2[i    ];
+			r[2 * i + 3] = ch2[i + 1];
+		}
+		return(r);
+	}
+
+	private byte[] __decode() throws IOException {
 		byte[] rawdata = new byte[8];
 		filepos += file.read(rawdata);
-		int[] samples = decoder.decode_ngc_dsp(1, 0, (int)(rawdata.length / 8.0 * 14.0), rawdata);
+		int[] samples = decoder.decode_ngc_dsp(0, 0, (int)(rawdata.length / 8.0 * 14.0), rawdata);
 		byte[] buffer = new byte[samples.length * 2];
 		for(int i = 0; i < samples.length; i++)
 			endianess.set16bit_BE(samples[i], buffer, i * 2);

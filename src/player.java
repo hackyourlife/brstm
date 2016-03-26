@@ -18,7 +18,24 @@ public class player {
 			System.exit(1);
 		}
 		try {
-			RandomAccessFile file = new RandomAccessFile(args[0], "r");
+			String filename = args[0];
+			String filenameLeft = null;
+			String filenameRight = null;
+			int lext = filename.lastIndexOf('.');
+			if(lext > 1) {
+				char[] data = filename.toCharArray();
+				char c = data[lext - 1];
+				if(c == 'L') {
+					data[lext - 1] = 'R';
+					filenameLeft = filename;
+					filenameRight = new String(data);
+				} else if(c == 'R') {
+					data[lext - 1] = 'L';
+					filenameLeft = new String(data);
+					filenameRight = filename;
+				}
+			}
+			RandomAccessFile file = new RandomAccessFile(filename, "r");
 			Stream stream = null;
 			try {
 				stream = new BRSTM(file);
@@ -26,9 +43,25 @@ public class player {
 				try {
 					stream = new RS03(file);
 				} catch(FileFormatException ex) {
-					stream = new DSP(file);
+					if(filenameLeft != null
+							&& new File(filenameLeft).exists()
+							&& new File(filenameRight).exists()) {
+						file.close();
+						RandomAccessFile left = new RandomAccessFile(filenameLeft, "r");
+						RandomAccessFile right = new RandomAccessFile(filenameRight, "r");
+						try {
+							stream = new DSP(left, right);
+						} catch(FileFormatException exc) {
+							left.close();
+							right.close();
+							file = new RandomAccessFile(filename, "r");
+							stream = new DSP(file);
+						}
+					} else
+						stream = new DSP(file);
 				}
 			}
+			System.out.printf("%d Channels, %d Hz\n", stream.getChannels(), stream.getSampleRate());
 			AsyncDecoder decoder = new AsyncDecoder(stream);
 			decoder.start();
 			play(decoder);

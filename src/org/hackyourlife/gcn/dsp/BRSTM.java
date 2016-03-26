@@ -229,7 +229,7 @@ public class BRSTM implements Stream {
 				int samplestodo = samplecnt - i;
 				if(samplestodo > 14)
 					samplestodo = 14;
-				int[] buf = decoder[ch].decode_ngc_dsp(1, startsample + i, samplestodo, rawdata);
+				int[] buf = decoder[ch].decode_ngc_dsp((int)(interleave * ch), startsample + i, samplestodo, rawdata);
 				for(int x = 0; x < buf.length; x++)
 					samples[(i + x) * channel_count + ch] = buf[x];
 			}
