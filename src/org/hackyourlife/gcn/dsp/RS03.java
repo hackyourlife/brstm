@@ -170,6 +170,8 @@ public class RS03 implements Stream {
 
 		byte[] rawdata = new byte[(int)(interleave * channel_count)];
 		int samplecnt = endsample - startsample;
+		if(samplecnt < 0)
+			samplecnt = 0;
 		int[] samples = new int[(int)(samplecnt * channel_count)];
 		int read = file.read(rawdata);
 		filepos += read;
