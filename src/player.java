@@ -4,6 +4,7 @@ import javax.sound.sampled.AudioFormat;
 import javax.sound.sampled.AudioSystem;
 import javax.sound.sampled.DataLine;
 import javax.sound.sampled.SourceDataLine;
+import org.hackyourlife.gcn.dsp.BFSTM;
 import org.hackyourlife.gcn.dsp.BRSTM;
 import org.hackyourlife.gcn.dsp.RS03;
 import org.hackyourlife.gcn.dsp.DSP;
@@ -41,24 +42,28 @@ public class player {
 				stream = new BRSTM(file);
 			} catch(FileFormatException e) {
 				try {
-					stream = new RS03(file);
+					stream = new BFSTM(file);
 				} catch(FileFormatException ex) {
-					if(filenameLeft != null
-							&& new File(filenameLeft).exists()
-							&& new File(filenameRight).exists()) {
-						file.close();
-						RandomAccessFile left = new RandomAccessFile(filenameLeft, "r");
-						RandomAccessFile right = new RandomAccessFile(filenameRight, "r");
-						try {
-							stream = new DSP(left, right);
-						} catch(FileFormatException exc) {
-							left.close();
-							right.close();
-							file = new RandomAccessFile(filename, "r");
+					try {
+						stream = new RS03(file);
+					} catch(FileFormatException exc) {
+						if(filenameLeft != null
+								&& new File(filenameLeft).exists()
+								&& new File(filenameRight).exists()) {
+							file.close();
+							RandomAccessFile left = new RandomAccessFile(filenameLeft, "r");
+							RandomAccessFile right = new RandomAccessFile(filenameRight, "r");
+							try {
+								stream = new DSP(left, right);
+							} catch(FileFormatException exce) {
+								left.close();
+								right.close();
+								file = new RandomAccessFile(filename, "r");
+								stream = new DSP(file);
+							}
+						} else
 							stream = new DSP(file);
-						}
-					} else
-						stream = new DSP(file);
+					}
 				}
 			}
 			System.out.printf("%d Channels, %d Hz\n", stream.getChannels(), stream.getSampleRate());
