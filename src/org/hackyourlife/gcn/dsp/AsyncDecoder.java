@@ -11,10 +11,12 @@ public class AsyncDecoder extends Thread implements Stream {
 		this.moreData = stream.hasMoreData();
 	}
 
+	@Override
 	public synchronized boolean hasMoreData() {
 		return moreData || data != null;
 	}
 
+	@Override
 	public synchronized byte[] decode() throws Exception {
 		if(!hasMoreData()) {
 			return null;
@@ -28,14 +30,17 @@ public class AsyncDecoder extends Thread implements Stream {
 		return tmp;
 	}
 
+	@Override
 	public int getChannels() {
 		return stream.getChannels();
 	}
 
+	@Override
 	public long getSampleRate() {
 		return stream.getSampleRate();
 	}
 
+	@Override
 	public void close() throws Exception {
 		closed = true;
 		interrupt();

@@ -120,10 +120,12 @@ public class DSP implements Stream {
 			throw new FileFormatException("channels do not match");
 	}
 
+	@Override
 	public long getSampleRate() {
 		return(sample_rate);
 	}
 
+	@Override
 	public int getChannels() {
 		if(ch2 == null)
 			return(1);
@@ -145,6 +147,7 @@ public class DSP implements Stream {
 		current_sample = 0;
 	}
 
+	@Override
 	public void close() throws IOException {
 		file.close();
 		if(ch2 != null) {
@@ -161,11 +164,12 @@ public class DSP implements Stream {
 		return(filepos < filesize);
 	}
 
+	@Override
 	public byte[] decode() throws IOException {
 		if(getChannels() == 1)
-			return __decode();
-		byte[] ch1 = __decode();
-		byte[] ch2 = this.ch2.__decode();
+			return doDecode();
+		byte[] ch1 = doDecode();
+		byte[] ch2 = this.ch2.doDecode();
 		byte[] r = new byte[ch1.length + ch2.length];
 		for(int i = 0; i < ch1.length; i += 2) {
 			r[2 * i    ] = ch1[i    ];
@@ -176,7 +180,7 @@ public class DSP implements Stream {
 		return(r);
 	}
 
-	private byte[] __decode() throws IOException {
+	private byte[] doDecode() throws IOException {
 		byte[] rawdata = new byte[8];
 		filepos += file.read(rawdata);
 		int[] samples = decoder.decode_ngc_dsp(0, 0, (int)(rawdata.length / 8.0 * 14.0), rawdata);
@@ -191,6 +195,7 @@ public class DSP implements Stream {
 		return(buffer);
 	}
 
+	@Override
 	public String toString() {
 		return(new String("DSP[" + sample_rate + "Hz,16bit," + sample_count + " samples,loop:" + ((loop_flag != 0) ? "yes" : "no") + "]"));
 	}

@@ -69,10 +69,12 @@ public class BFSTM implements Stream {
 		return endianess.get_32bitBE(data);
 	}
 
+	@Override
 	public long getSampleRate() {
 		return(sample_rate);
 	}
 
+	@Override
 	public int getChannels() {
 		return(channel_count);
 	}
@@ -85,10 +87,12 @@ public class BFSTM implements Stream {
 		return getChannels() * (long)(getInterleaveSize() / 8.0 * 14.0);
 	}
 
+	@Override
 	public void close() throws Exception {
 		file.close();
 	}
 
+	@Override
 	public boolean hasMoreData() {
 		return((loop_flag != 0) || (filepos < filesize));
 	}
@@ -238,7 +242,8 @@ public class BFSTM implements Stream {
 		}
 		return samples;
 	}
-	
+
+	@Override
 	public byte[] decode() throws Exception {
 		int[] samples = doDecode();
 		byte[] buffer = new byte[samples.length * 2];
@@ -255,6 +260,7 @@ public class BFSTM implements Stream {
 		return(buffer);
 	}
 
+	@Override
 	public String toString() {
 		return(new String("BFSTM[" + sample_rate + "Hz,16bit," + sample_count + " samples,loop:" + ((loop_flag != 0) ? "yes" : "no") + "," + channel_count + "ch]"));
 	}

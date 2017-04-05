@@ -98,9 +98,7 @@ public class player {
 		waveout.open(format, 16384);
 
 		waveout.start();
-		while(true) {
-			if(!stream.hasMoreData())
-				break;
+		while(stream.hasMoreData()) {
 			byte[] buffer = stream.decode();
 			waveout.write(buffer, 0, buffer.length);
 		}
