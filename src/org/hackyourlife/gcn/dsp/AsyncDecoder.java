@@ -12,7 +12,7 @@ public class AsyncDecoder extends Thread implements Stream {
 	}
 
 	public synchronized boolean hasMoreData() {
-		return moreData;
+		return moreData || data != null;
 	}
 
 	public synchronized byte[] decode() throws Exception {
