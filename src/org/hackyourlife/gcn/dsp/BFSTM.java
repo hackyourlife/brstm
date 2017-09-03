@@ -229,7 +229,7 @@ public class BFSTM implements Stream {
 		int[] samples = new int[samplecnt * channel_count];
 		int read = file.read(rawdata);
 		filepos += read;
-		current_byte += read / 2;
+		current_byte += read / channel_count;
 		for(int ch = 0; ch < channel_count; ch++) {
 			for(int i = 0; i < samplecnt; i += 14) {
 				int samplestodo = samplecnt - i;

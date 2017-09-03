@@ -77,13 +77,55 @@ public class player {
 		}
 	}
 
+	private static byte[] sum(byte[] data, int channels) {
+		if(channels == 1 || channels == 2) {
+			return data;
+		}
+		int samples = data.length / (channels * 2);
+		byte[] result = new byte[samples * 4]; // 2 channels, 16bit
+		for(int i = 0; i < samples; i++) {
+			int l = 0;
+			int r = 0;
+			for(int ch = 0; ch < channels; ch++) {
+				int idx = (i * channels + ch) * 2;
+				short val = (short) (Byte.toUnsignedInt(data[idx]) << 8 | Byte.toUnsignedInt(data[idx + 1]));
+				if((ch & 1) == 0) {
+					l += val;
+				} else {
+					r += val;
+				}
+			}
+			// clamp
+			if(l < -32768) {
+				l = -32768;
+			} else if(l > 32767) {
+				l = 32767;
+			}
+			if(r < -32768) {
+				r = -32768;
+			} else if(r > 32767) {
+				r = 32767;
+			}
+			// write back
+			result[i * 4] = (byte) (l >> 8);
+			result[i * 4 + 1] = (byte) l;
+			result[i * 4 + 2] = (byte) (r >> 8);
+			result[i * 4 + 3] = (byte) r;
+		}
+		return result;
+	}
+
 	private static void play(Stream stream) throws Exception {
+		int channels = stream.getChannels();
+		if(channels > 2) {
+			channels = 2;
+		}
 		AudioFormat format = new AudioFormat(
 				AudioFormat.Encoding.PCM_SIGNED,	// encoding
 				stream.getSampleRate(),			// sample rate
 				16,					// bit/sample
-				stream.getChannels(),			// channels
-				2 * stream.getChannels(),
+				channels,				// channels
+				2 * channels,
 				stream.getSampleRate(),
 				true					// big-endian
 		);
@@ -100,6 +142,7 @@ public class player {
 		waveout.start();
 		while(stream.hasMoreData()) {
 			byte[] buffer = stream.decode();
+			buffer = sum(buffer, stream.getChannels());
 			waveout.write(buffer, 0, buffer.length);
 		}
 		waveout.stop();
