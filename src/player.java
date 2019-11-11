@@ -14,9 +14,18 @@ import org.hackyourlife.gcn.dsp.FileFormatException;
 
 public class player {
 	public static void main(String[] args) throws Exception {
+		int track = -1;
 		if(args.length < 1) {
-			System.err.println("Usage: player FILE");
+			System.err.println("Usage: player FILE [track]");
 			System.exit(1);
+		}
+		if(args.length > 1) {
+			try {
+				track = Integer.parseInt(args[1]);
+			} catch(NumberFormatException e) {
+				System.err.println("Invalid number: " + args[1]);
+				System.exit(1);
+			}
 		}
 		try {
 			String filename = args[0];
@@ -69,7 +78,7 @@ public class player {
 			System.out.printf("%d Channels, %d Hz\n", stream.getChannels(), stream.getSampleRate());
 			AsyncDecoder decoder = new AsyncDecoder(stream);
 			decoder.start();
-			play(decoder);
+			play(decoder, track);
 			stream.close();
 		} catch(Exception e) {
 			e.printStackTrace();
@@ -77,12 +86,28 @@ public class player {
 		}
 	}
 
-	private static byte[] sum(byte[] data, int channels) {
+	private static byte[] sum(byte[] data, int channels, int track) {
 		if(channels == 1 || channels == 2) {
 			return data;
 		}
 		int samples = data.length / (channels * 2);
 		byte[] result = new byte[samples * 4]; // 2 channels, 16bit
+
+		// extract single (stereo) track?
+		if(track != -1) {
+			int ch = track * 2;
+			for(int i = 0; i < samples; i++) {
+				int lidx = (i * channels + ch) * 2;
+				int ridx = (i * channels + ch + 1) * 2;
+				result[i * 4    ] = data[lidx];
+				result[i * 4 + 1] = data[lidx + 1];
+				result[i * 4 + 2] = data[ridx];
+				result[i * 4 + 3] = data[ridx + 1];
+			}
+			return result;
+		}
+
+		// sum up all channels
 		for(int i = 0; i < samples; i++) {
 			int l = 0;
 			int r = 0;
@@ -115,7 +140,7 @@ public class player {
 		return result;
 	}
 
-	private static void play(Stream stream) throws Exception {
+	private static void play(Stream stream, int track) throws Exception {
 		int channels = stream.getChannels();
 		if(channels > 2) {
 			channels = 2;
@@ -142,7 +167,7 @@ public class player {
 		waveout.start();
 		while(stream.hasMoreData()) {
 			byte[] buffer = stream.decode();
-			buffer = sum(buffer, stream.getChannels());
+			buffer = sum(buffer, stream.getChannels(), track);
 			waveout.write(buffer, 0, buffer.length);
 		}
 		waveout.stop();
