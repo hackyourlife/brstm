@@ -33,6 +33,8 @@ public class BFSTM implements Stream {
 
 	ADPCMDecoder decoder[];
 
+	boolean	isBE;
+
 	public final static int CODEC_PCM8 = 0;
 	public final static int CODEC_PCM16BE = 1;
 	public final static int CODEC_ADPCM = 2;
@@ -67,6 +69,34 @@ public class BFSTM implements Stream {
 		byte[] data = new byte[4];
 		file.read(data);
 		return endianess.get_32bitBE(data);
+	}
+
+	public int read_16bitLE(long offset) throws IOException {
+		file.seek(offset);
+		byte[] data = new byte[2];
+		file.read(data);
+		return endianess.get_16bitLE(data);
+	}
+
+	public long read_32bitLE(long offset) throws IOException {
+		file.seek(offset);
+		byte[] data = new byte[4];
+		file.read(data);
+		return endianess.get_32bitLE(data);
+	}
+
+	public int read_16bit(long offset) throws IOException {
+		if(isBE)
+			return read_16bitBE(offset);
+		else
+			return read_16bitLE(offset);
+	}
+
+	public long read_32bit(long offset) throws IOException {
+		if(isBE)
+			return read_32bitBE(offset);
+		else
+			return read_32bitLE(offset);
 	}
 
 	@Override
@@ -113,10 +143,19 @@ public class BFSTM implements Stream {
 		if(read_32bitBE(0) != 0x4653544D) // "FSTM"
 			throw new FileFormatException("not a bfstm file");
 
-		if(read_16bitBE(4) != 0xFEFF)
-			throw new FileFormatException("not a bfstm file");
+		int endianess = read_16bitBE(4);
+		switch(endianess) {
+			case 0xFEFF: // Wii U games
+				isBE = true;
+				break;
+			case 0xFFFE: // Switch games
+				isBE = false;
+				break;
+			default:
+				throw new FileFormatException("not a bfstm file");
+		}
 
-		int section_count = read_16bitBE(0x10);
+		int section_count = read_16bit(0x10);
 		long info_offset = -1;
 		long info_size = -1;
 		long seek_offset = -1;
@@ -124,20 +163,22 @@ public class BFSTM implements Stream {
 		long data_offset = -1;
 		long data_size = -1;
 		for(int i = 0; i < section_count; i++) {
-			int id = read_16bitBE(0x14 + i * 0xC);
+			int id = read_16bit(0x14 + i * 0xC);
 			switch(id) {
 				case 0x4000:
-					info_offset = read_32bitBE(0x18 + i * 0xC);
-					info_size = read_32bitBE(0x1C + i * 0xC);
+					info_offset = read_32bit(0x18 + i * 0xC);
+					info_size = read_32bit(0x1C + i * 0xC);
 					break;
 				case 0x4001:
-					seek_offset = read_32bitBE(0x18 + i * 0xC);
-					seek_size = read_32bitBE(0x1C + i * 0xC);
+					seek_offset = read_32bit(0x18 + i * 0xC);
+					seek_size = read_32bit(0x1C + i * 0xC);
 					break;
 				case 0x4002:
-					data_offset = read_32bitBE(0x18 + i * 0xC);
-					data_size = read_32bitBE(0x1C + i * 0xC);
+					data_offset = read_32bit(0x18 + i * 0xC);
+					data_size = read_32bit(0x1C + i * 0xC);
 					break;
+				default:
+					throw new FileFormatException("invalid id");
 			}
 		}
 
@@ -160,27 +201,27 @@ public class BFSTM implements Stream {
 			throw new FileFormatException("no channel");
 		}
 
-		this.sample_count = read_32bitBE(info_offset + 0x2C);
-		this.sample_rate = read_16bitBE(info_offset + 0x26);
-		this.loop_start_sample = read_32bitBE(info_offset + 0x28);
+		this.sample_count = read_32bit(info_offset + 0x2C);
+		this.sample_rate = read_32bit(info_offset + 0x24);
+		this.loop_start_sample = read_32bit(info_offset + 0x28);
 		this.loop_end_sample = this.sample_count;
 		this.loop_start_offset = (long)(this.loop_start_sample * 8.0 / 14.0);
 		this.loop_end_offset = (long)(this.loop_end_sample * 8.0 / 14.0);
 
-		this.interleave_block_size = read_32bitBE(info_offset + 0x34);
-		this.interleave_smallblock_size = read_32bitBE(info_offset + 0x44);
+		this.interleave_block_size = read_32bit(info_offset + 0x34);
+		this.interleave_smallblock_size = read_32bit(info_offset + 0x44);
 
 		if(this.codec == CODEC_ADPCM) {
-			long coef_ptr_table = read_32bitBE(info_offset + 0x1C) + info_offset + 8;
+			long coef_ptr_table = read_32bit(info_offset + 0x1C) + info_offset + 8;
 
 			this.coef = new int[this.channel_count][16];
 			this.decoder = new ADPCMDecoder[this.channel_count];
 			for(int j = 0; j < this.channel_count; j++) {
-				long tmp = read_32bitBE(coef_ptr_table + 8 + j * 8);
+				long tmp = read_32bit(coef_ptr_table + 8 + j * 8);
 				long coef_offset = tmp + coef_ptr_table;
-				coef_offset += read_32bitBE(coef_offset + 4);
+				coef_offset += read_32bit(coef_offset + 4);
 				for(int i = 0; i < 16; i++)
-					this.coef[j][i] = unsigned2signed16bit(read_16bitBE(coef_offset + i * 2));
+					this.coef[j][i] = unsigned2signed16bit(read_16bit(coef_offset + i * 2));
 				this.decoder[j] = new ADPCMDecoder();
 				this.decoder[j].setCoef(this.coef[j]);
 				this.decoder[j].setHistory(0, 0);
