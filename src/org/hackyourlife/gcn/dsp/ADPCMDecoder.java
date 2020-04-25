@@ -80,4 +80,44 @@ public class ADPCMDecoder {
 
 		return(samples);
 	}
+
+	public int[] decode_ngc_dsp_sub(int offset, long first_sample, int samples_to_do, int ch, int nch, byte[] mem) {
+		long i = first_sample;
+		int sample_count;
+		int channelspacing = 1;
+
+		int framesin = (int)(first_sample / 14);
+
+		int header = mem[offset + framesin * 8 * nch + ch] & 0xFF;
+		int scale = 1 << (header & 0xf);
+		int coef_index = (header >> 4) & 0xf;
+		int hist1 = adpcm_history1;
+		int hist2 = adpcm_history2;
+		int coef1 = adpcm_coef[coef_index*2];
+		int coef2 = adpcm_coef[coef_index*2 + 1];
+
+		first_sample = first_sample % 14;
+
+		int[] samples = new int[samples_to_do * channelspacing];
+
+		for(i = first_sample, sample_count = 0; i < (first_sample + samples_to_do); i++, sample_count += channelspacing) {
+			int sample_byte = mem[offset + framesin * 8 * nch + nch + ch + (int) (i / 2 * nch)] & 0xFF;
+
+			samples[sample_count] = clamp16((
+				(((((i & 1) != 0) ?
+				   get_low_nibble_signed(sample_byte):
+				   get_high_nibble_signed(sample_byte)
+				   ) * scale) << 11) + 1024 +
+				 (coef1 * hist1 + coef2 * hist2)) >> 11
+				);
+
+			hist2 = hist1;
+			hist1 = samples[sample_count];
+		}
+
+		adpcm_history1 = hist1;
+		adpcm_history2 = hist2;
+
+		return(samples);
+	}
 }

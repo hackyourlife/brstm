@@ -6,6 +6,7 @@ import javax.sound.sampled.DataLine;
 import javax.sound.sampled.SourceDataLine;
 import org.hackyourlife.gcn.dsp.BFSTM;
 import org.hackyourlife.gcn.dsp.BRSTM;
+import org.hackyourlife.gcn.dsp.RS02;
 import org.hackyourlife.gcn.dsp.RS03;
 import org.hackyourlife.gcn.dsp.DSP;
 import org.hackyourlife.gcn.dsp.Stream;
@@ -70,8 +71,13 @@ public class player {
 								file = new RandomAccessFile(filename, "r");
 								stream = new DSP(file);
 							}
-						} else
-							stream = new DSP(file);
+						} else {
+							try {
+								stream = new RS02(file);
+							} catch(FileFormatException exce) {
+								stream = new DSP(file);
+							}
+						}
 					}
 				}
 			}
